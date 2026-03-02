@@ -8,8 +8,6 @@ This backend handles user authentication, grocery list creation, pantry tracking
 
 It is fully integrated with Supabase (PostgreSQL) as the database and follows a clean MVC (Model-View-Controller) architecture to ensure modularity, scalability, and maintainability.
 
-All APIs were tested using Postman to verify request-response flow and proper database integration.
-
 ---
 
 ## 🚀 Tech Stack
@@ -47,8 +45,6 @@ backend/
 - **Utils** → Helper functions
 - **server.js** → Entry point of the backend server
 
-This structure ensures clean separation of concerns and professional project organization.
-
 ---
 
 ## 🔐 Authentication
@@ -56,68 +52,53 @@ This structure ensures clean separation of concerns and professional project org
 Authentication is implemented using JWT (JSON Web Token).
 
 Features include:
-
 - User Registration
 - User Login
 - Protected Routes using middleware
 - Secure password hashing with bcrypt
-
-All protected routes require a valid Bearer token in the request headers.
 
 ---
 
 ## 📦 API Documentation
 
 ### 🔑 Authentication Routes
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-
----
+- `POST /api/auth/register` → Register a new user
+- `POST /api/auth/login` → Login an existing user
 
 ### 🛒 Grocery List Routes
-- `POST /api/grocery/list`
-- `GET /api/grocery/lists`
-- `PUT /api/grocery/list/:id`
-- `DELETE /api/grocery/list/:id`
-
----
+- `POST /api/grocery/lists` → Create a grocery list
+- `GET /api/grocery/lists` → Get all grocery lists
+- `PUT /api/grocery/lists/:id` → Update a grocery list
+- `DELETE /api/grocery/lists/:id` → Delete a grocery list
 
 ### 📦 Grocery Item Routes
-- `POST /api/grocery/item`
-- `GET /api/grocery/items/:listId`
-- `PUT /api/grocery/item/:id`
-- `DELETE /api/grocery/item/:id`
-
----
+- `POST /api/grocery/items` → Add an item to the grocery list
+- `GET /api/grocery/items/:listId` → Get items in a grocery list
+- `PUT /api/grocery/items/:id` → Update an item in the grocery list
+- `DELETE /api/grocery/items/:id` → Delete an item from the grocery list
 
 ### 🥫 Pantry Routes
-- `POST /api/pantry`
-- `GET /api/pantry`
-- `PUT /api/pantry/:id`
-- `DELETE /api/pantry/:id`
-
----
+- `POST /api/pantry` → Add a pantry item
+- `GET /api/pantry` → Get all pantry items
+- `PUT /api/pantry/:id` → Update a pantry item
+- `DELETE /api/pantry/:id` → Delete a pantry item
 
 ### 🍽️ Meal Planning Routes
-- `POST /api/meals`
-- `GET /api/meals`
-
----
+- `POST /api/meals/plans` → Create a new meal plan
+- `GET /api/meals/plans` → Get all meal plans
+- `DELETE /api/meals/plans/:id` → Delete a meal plan
+- `GET /api/meals/suggestions` → Suggest meals based on pantry and preferences
 
 ### 💰 Budget Routes
-- `GET /api/budget`
-- `POST /api/budget`
-
----
+- `GET /api/budget` → Get the current user's budget
+- `POST /api/budget` → Set a new budget
 
 ### 🛍️ Shopping Routes
-- `POST /api/shopping/complete`
-- `GET /api/shopping/history`
-
----
+- `POST /api/shopping/complete` → Complete shopping and save history
+- `GET /api/shopping/history` → Get shopping history for the user
 
 ### 📊 Dashboard Route
-- `GET /api/dashboard`
+- `GET /api/dashboard/stats` → Get dashboard statistics
 
 ---
 
@@ -127,62 +108,23 @@ The backend connects to Supabase using the official `@supabase/supabase-js` clie
 
 ### Main Tables
 
-### 👤 Users
-- id (Primary Key)
-- name
-- email
-- password (hashed)
-- created_at
-
-### 🛒 Grocery Lists
-- id (Primary Key)
-- user_id (Foreign Key → Users)
-- title
-- created_at
-
-### 📦 Grocery Items
-- id (Primary Key)
-- list_id (Foreign Key → Grocery Lists)
-- item_name
-- quantity
-- price
-- category
-
-### 🥫 Pantry
-- id (Primary Key)
-- user_id (Foreign Key → Users)
-- item_name
-- quantity
-- expiration_date
-
-### 🍽️ Meals
-- id (Primary Key)
-- user_id
-- meal_name
-- ingredients
-- scheduled_date
-
-### 💰 Budget
-- id (Primary Key)
-- user_id
-- total_budget
-- period
-
-All relationships are maintained using foreign keys to ensure proper normalization and data integrity.
+- **Users**
+- **Grocery Lists**
+- **Grocery Items**
+- **Pantry**
+- **Meals**
+- **Budget**
 
 ---
 
 ## 🧪 API Testing
 
 All backend APIs were tested using Postman to verify:
-
 - Authentication flow
 - CRUD operations
 - Protected route access
 - Database response handling
 - Error handling
-
-Postman ensured smooth integration between Backend and Supabase Database.
 
 ---
 
@@ -191,5 +133,5 @@ Postman ensured smooth integration between Backend and Supabase Database.
 1️⃣ Clone the repository:
 
 ```bash
-git clone https://github.com/Divyasree-Manpoor/backend-grocery>
+git clone https://github.com/Divyasree-Manpoor/backend-grocery
 cd grocery-backend
