@@ -2,7 +2,7 @@ import supabase from "../config/supabase.js";
 
 export const getDashboardStats = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user?.id;
 
     if (!userId) {
       return res.status(401).json({
@@ -12,23 +12,27 @@ export const getDashboardStats = async (req, res) => {
     }
 
     /* ==============================
-       1️⃣ TOTAL LISTS
+       1️⃣ TOTAL GROCERY LISTS
     ============================== */
-    const { count: totalLists } = await supabase
+    const { count: totalLists, error: listError } = await supabase
       .from("grocery_lists")
       .select("*", { count: "exact", head: true })
       .eq("user_id", userId);
 
+    if (listError) throw listError;
+
     /* ==============================
        2️⃣ TOTAL PANTRY ITEMS
     ============================== */
-    const { count: pantryItems } = await supabase
+    const { count: pantryItems, error: pantryError } = await supabase
       .from("pantry")
       .select("*", { count: "exact", head: true })
       .eq("user_id", userId);
 
+    if (pantryError) throw pantryError;
+
     /* ==============================
-       3️⃣ TOTAL SPENDING FROM HISTORY
+       3️⃣ TOTAL SPENDING & SAVINGS
     ============================== */
     const { data: historyData, error: historyError } = await supabase
       .from("shopping_history")
@@ -46,30 +50,28 @@ export const getDashboardStats = async (req, res) => {
     });
 
     /* ==============================
-       4️⃣ GET LATEST MONTHLY BUDGET
+       4️⃣ GET CURRENT MONTH BUDGET
     ============================== */
-    // Get current month
-/* ==============================
-   4️⃣ GET CURRENT MONTH BUDGET
-============================== */
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth() + 1;
+    const currentYear = currentDate.getFullYear();
 
-const currentMonth = new Date().toLocaleString("default", {
-  month: "short",
-  year: "numeric",
-});
+    const { data: budgetData, error: budgetError } = await supabase
+      .from("budgets")
+      .select("amount")
+      .eq("user_id", userId)
+      .eq("month", currentMonth)
+      .eq("year", currentYear)
+      .maybeSingle();
 
-const { data: budgetData, error: budgetError } = await supabase
-  .from("budgets")
-  .select("amount")
-  .eq("user_id", userId)
-  .eq("month", currentMonth)
-  .maybeSingle();
+    if (budgetError) throw budgetError;
 
-if (budgetError) throw budgetError;
-
-const monthlyBudget = budgetData?.amount ?? null;
+    const monthlyBudget = Number(budgetData?.amount || 0);
     const remainingBudget = monthlyBudget - totalSpending;
 
+    /* ==============================
+       FINAL RESPONSE
+    ============================== */
     return res.status(200).json({
       success: true,
       data: {

@@ -13,16 +13,20 @@ const router = express.Router();
    🍽 MEAL PLAN ROUTES
 =========================== */
 
-router.post("/", protect, addMealPlan);
+// Create meal plan
+router.post("/plans", protect, addMealPlan);
 
-router.get("/plans", protect,getMealPlans);
+// Get all meal plans
+router.get("/plans", protect, getMealPlans);
 
-router.delete("/plans/:id", protect,deleteMealPlan);
-
+// Delete meal plan
+router.delete("/plans/:id", protect, deleteMealPlan);
 
 /* ===========================
-   🥗 MEAL SUGGESTION ROUTE
+   🥗 MEAL SUGGESTIONS
 =========================== */
-router.get("/suggestions", protect,suggestMeals);
+
+// Suggest meals based on pantry + dietary preference
+router.get("/suggestions", protect, suggestMeals);
 
 export default router;

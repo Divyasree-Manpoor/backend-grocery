@@ -2,13 +2,13 @@ import supabase from "../config/supabase.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
-// Email regex validation
+// Email validation
 const validateEmail = (email) => {
   const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return regex.test(email);
 };
 
-// Password strength validation
+// Password validation
 const validatePassword = (password) => {
   const regex = /^(?=.*[A-Z])(?=.*[@$!%*?&]).{5,}$/;
   return regex.test(password);
@@ -18,34 +18,38 @@ export const registerUser = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // 1 Required field validation
+    // 1️⃣ Required fields
     if (!name || !email || !password) {
       return res.status(400).json({
         message: "All fields are required",
       });
     }
 
-    // 2 Email format validation
+    // 2️⃣ Email validation
     if (!validateEmail(email)) {
       return res.status(400).json({
         message: "Invalid email format",
       });
     }
 
-    // 3 Password strength validation
+    // 3️⃣ Password validation
     if (!validatePassword(password)) {
       return res.status(400).json({
         message:
-          "Password must be at least 6 characters and contain at least one letter and one number",
+          "Password must be at least 5 characters, include one uppercase letter and one special character",
       });
     }
 
-    // 4 Check if email already exists
-    const { data: existingUser } = await supabase
+    // 4️⃣ Check existing user
+    const { data: existingUser, error: findError } = await supabase
       .from("users")
       .select("*")
       .eq("email", email)
-      .single();
+      .maybeSingle(); // ✅ FIXED
+
+    if (findError) {
+      return res.status(400).json({ message: findError.message });
+    }
 
     if (existingUser) {
       return res.status(400).json({
@@ -53,10 +57,10 @@ export const registerUser = async (req, res) => {
       });
     }
 
-    // 5 Hash password
+    // 5️⃣ Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 6 Insert new user
+    // 6️⃣ Insert user
     const { data, error } = await supabase
       .from("users")
       .insert([
@@ -67,22 +71,39 @@ export const registerUser = async (req, res) => {
         },
       ])
       .select()
-      .single(); //changed this 
+      .single();
 
-      // Create default monthly budget (example: 5000)
-       await supabase.from("budgets").insert([
-     {
-    user_id: data.id,
-    month: new Date().toISOString().slice(0, 7), // YYYY-MM
-    amount: 5000, // default budget
+    if (error) {
+      return res.status(400).json({ message: error.message });
+    }
+
+    // 7️⃣ Create default monthly budget
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth() + 1;
+    const currentYear = currentDate.getFullYear();
+
+    const { error: budgetError } = await supabase
+      .from("budgets")
+      .insert([
+        {
+          user_id: data.id,
+          month: currentMonth,
+          year: currentYear,
+          amount: 5000,
         },
-        ]);
+      ]);
 
-    if (error) throw error;
+    if (budgetError) {
+      return res.status(400).json({ message: budgetError.message });
+    }
 
     res.status(201).json({
       message: "User registered successfully",
-      user: data,
+      user: {
+        id: data.id,
+        name: data.name,
+        email: data.email,
+      },
     });
   } catch (err) {
     res.status(500).json({
@@ -96,19 +117,23 @@ export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Required field validation
+    // 1️⃣ Required fields
     if (!email || !password) {
       return res.status(400).json({
         message: "Email and password are required",
       });
     }
 
-    // Find user
-    const { data: user } = await supabase
+    // 2️⃣ Find user
+    const { data: user, error } = await supabase
       .from("users")
       .select("*")
       .eq("email", email)
-      .single();
+      .maybeSingle();
+
+    if (error) {
+      return res.status(400).json({ message: error.message });
+    }
 
     if (!user) {
       return res.status(400).json({
@@ -116,7 +141,7 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    // Compare password
+    // 3️⃣ Compare password
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
@@ -125,6 +150,7 @@ export const loginUser = async (req, res) => {
       });
     }
 
+    // 4️⃣ Generate token
     const token = jwt.sign(
       { id: user.id },
       process.env.JWT_SECRET,

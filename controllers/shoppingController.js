@@ -1,57 +1,116 @@
 import supabase from "../config/supabase.js";
+import { calculateTotal } from "../utils/calculateTotal.js";
+import { applyCoupon } from "../utils/applyCoupon.js";
 
 /* ============================================
-   COMPLETE SHOPPING
+   🛒 COMPLETE SHOPPING
 ============================================ */
+/* ===========================
+   💰 COMPLETE SHOPPING (SMART)
+=========================== */
 
 export const completeShopping = async (req, res) => {
   try {
-    const { user_id, total_amount, discount_amount } = req.body;
+    const userId = req.user.id;
+    const { list_id } = req.body;
 
-    if (!user_id || total_amount === undefined) {
+    if (!list_id) {
+      return res.status(400).json({ message: "List ID required" });
+    }
+
+    // 1️⃣ Get only purchased items
+    const { data: items, error: itemError } = await supabase
+      .from("grocery_items")
+      .select("*")
+      .eq("list_id", list_id)
+      .eq("purchased", true);
+
+    if (itemError) throw itemError;
+
+    if (!items || items.length === 0) {
       return res.status(400).json({
-        message: "user_id and total_amount are required",
+        message: "No purchased items found",
       });
     }
 
-    const { data, error } = await supabase
-      .from("shopping_history")
-      .insert([
-        {
-          user_id: user_id,
-          total_amount: Number(total_amount),
-          discount_amount: Number(discount_amount) || 0, // ✅ NEW
-        },
-      ])
-      .select();
+    let subtotal = 0;
+    let totalDiscount = 0;
 
-    if (error) {
-      console.error("Insert Error:", error);
-      return res.status(500).json({
-        message: "Failed to save shopping history",
-      });
-    }
+    // 2️⃣ Fetch coupons
+    const { data: coupons } = await supabase
+      .from("coupons")
+      .select("*");
 
-    return res.status(201).json({
+    // 3️⃣ Calculate totals
+    items.forEach((item) => {
+      const price = Number(item.price) || 0;
+      const quantity = Number(item.quantity) || 1;
+      const itemTotal = price * quantity;
+
+      subtotal += itemTotal;
+
+      const matchedCoupon = coupons?.find(
+        (c) =>
+          c.item_name.toLowerCase().trim() ===
+          item.item_name.toLowerCase().trim() &&
+          new Date(c.valid_until) >= new Date()
+      );
+
+      if (matchedCoupon) {
+        const discount =
+          (itemTotal * matchedCoupon.discount_percentage) / 100;
+        totalDiscount += discount;
+      }
+    });
+
+    const finalTotal = subtotal - totalDiscount;
+
+    // 4️⃣ Insert into shopping_history
+    const { data: history, error: historyError } =
+      await supabase
+        .from("shopping_history")
+        .insert([
+          {
+            user_id: userId,
+            list_id,
+            subtotal,
+            discount_amount: totalDiscount,
+            total_amount: finalTotal,
+          },
+        ])
+        .select()
+        .single();
+
+    if (historyError) throw historyError;
+
+    // 5️⃣ Remove purchased items from grocery list
+    const purchasedIds = items.map((item) => item.id);
+
+    await supabase
+      .from("grocery_items")
+      .delete()
+      .in("id", purchasedIds);
+
+    res.status(200).json({
       message: "Shopping completed successfully",
-      data,
+      data: history,
     });
 
   } catch (err) {
-    console.error("Complete Shopping Error:", err);
-    return res.status(500).json({
-      message: "Server error",
+    console.log(err);
+    res.status(500).json({
+      error: err.message,
     });
   }
 };
 
-/* ============================================
-   GET SHOPPING HISTORY
-============================================ */
 
+/* ============================================
+   📜 GET SHOPPING HISTORY
+============================================ */
 export const getShoppingHistory = async (req, res) => {
   try {
-    const userId = req.user.id; // ✅ get from auth middleware
+    const userId = req.user.id;
 
     const { data, error } = await supabase
       .from("shopping_history")
@@ -59,19 +118,14 @@ export const getShoppingHistory = async (req, res) => {
       .eq("user_id", userId)
       .order("completed_at", { ascending: false });
 
-    if (error) {
-      console.error("Fetch Error:", error);
-      return res.status(500).json({
-        message: "Failed to fetch history",
-      });
-    }
+    if (error) throw error;
 
     return res.status(200).json(data);
 
   } catch (err) {
     console.error("History Error:", err);
     return res.status(500).json({
-      message: "Server error",
+      message: "Failed to fetch shopping history",
     });
   }
 };

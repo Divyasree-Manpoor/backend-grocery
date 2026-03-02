@@ -1,548 +1,120 @@
 import supabase from "../config/supabase.js";
 
 /* ===========================
-    GROCERY LIST CONTROLLERS
+   🛒 GROCERY LIST CONTROLLERS
 =========================== */
 
 // Create Grocery List
 export const createList = async (req, res) => {
   try {
-    const user_id = req.user.id; 
+    const user_id = req.user.id;
     const { title } = req.body;
 
     if (!title) {
-      return res.status(400).json({
-        message: "Title is required",
-      });
+      return res.status(400).json({ message: "Title is required" });
     }
 
     const { data, error } = await supabase
       .from("grocery_lists")
       .insert([{ user_id, title }])
-      .select();
+      .select()
+      .single();
 
     if (error) throw error;
 
-    res.status(201).json({
-      message: "List created successfully",
-      list: data,
-    });
+    res.status(201).json({ message: "List created", list: data });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
-// Get All Lists of a User
+
+
+// Get Lists (Own + Shared)
 export const getLists = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Own lists
     const { data: ownLists } = await supabase
       .from("grocery_lists")
       .select("*")
       .eq("user_id", userId);
 
-    // Shared lists
     const { data: shared } = await supabase
       .from("shared_lists")
       .select("grocery_lists(*)")
       .eq("shared_with", userId);
 
-    const sharedLists = shared?.map(s => s.grocery_lists) || [];
+    const sharedLists = shared?.map((s) => s.grocery_lists) || [];
 
-    res.status(200).json([
-      ...ownLists,
-      ...sharedLists
-    ]);
-
+    res.status(200).json([...(ownLists || []), ...sharedLists]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
-// Update Grocery List Title
 export const updateList = async (req, res) => {
   try {
     const { id } = req.params;
     const { title } = req.body;
     const userId = req.user.id;
 
+    if (!title) {
+      return res.status(400).json({ message: "Title is required" });
+    }
+
     const { data: list } = await supabase
       .from("grocery_lists")
       .select("*")
       .eq("id", id)
-      .single();
+      .maybeSingle();
 
-    if (!list) {
-     return res.status(404).json({ message: "List not found" });
-    }
-    if (list.user_id !== userId) {
-      // check if shared user
-      const { data: shared } = await supabase
-        .from("shared_lists")
-        .select("*")
-        .eq("list_id", id)
-        .eq("shared_with", userId)
-        .single();
-
-         if (!shared) {
-        return res.status(403).json({
-          message: "Not authorized to update this list",
-        });
-      }
+    if (!list || list.user_id !== userId) {
+      return res.status(403).json({ message: "Not authorized" });
     }
 
     const { data, error } = await supabase
       .from("grocery_lists")
       .update({ title })
       .eq("id", id)
-      .select();
+      .select()
+      .single();
 
     if (error) throw error;
 
-    res.status(200).json({
-      message: "List updated successfully",
-      list: data,
-    });
+    res.json({ message: "List updated", list: data });
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
+
 // Delete Grocery List
 export const deleteList = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
 
-    // Check if list belongs to user
     const { data: list } = await supabase
       .from("grocery_lists")
       .select("*")
       .eq("id", id)
-      .single();
+      .maybeSingle();
 
     if (!list || list.user_id !== userId) {
-      return res.status(403).json({
-        message: "Not authorized to delete this list",
-      });
+      return res.status(403).json({ message: "Not authorized" });
     }
 
-    const { error } = await supabase
-      .from("grocery_lists")
-      .delete()
-      .eq("id", id);
+    await supabase.from("grocery_lists").delete().eq("id", id);
 
-    if (error) throw error;
-
-    res.status(200).json({
-      message: "List deleted successfully",
-    });
+    res.json({ message: "List deleted" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
+
 /* ===========================
-   🛍 GROCERY ITEM CONTROLLERS*/
-
-// Add Item to List
-export const addItem = async (req, res) => {
-  try {
-    const { list_id, item_name, category, quantity, price } = req.body;
-     const userId = req.user.id;
-
-     if (!list_id || !item_name) {
-      return res.status(400).json({
-        message: "List ID and item name are required",
-      });
-    }
-
-     const { data: list } = await supabase
-      .from("grocery_lists")
-      .select("*")
-      .eq("id", list_id)
-      .single();
-
-      if (!list) {
-      return res.status(404).json({ message: "List not found" });
-    }
-
-    // Owner or shared?
-    if (list.user_id !== userId) {
-      const { data: shared } = await supabase
-        .from("shared_lists")
-        .select("*")
-        .eq("list_id", list_id)
-        .eq("shared_with", userId)
-        .single();
-        if (!shared) {
-        return res.status(403).json({
-          message: "Not authorized to add item",
-        });
-      }
-    }
-    const { data, error } = await supabase
-      .from("grocery_items")
-      .insert([
-        {
-          list_id,
-          item_name,
-          category,
-          quantity,
-          price,
-        },
-      ])
-      .select();
-
-    if (error) throw error;
-
-    res.status(201).json({
-      message: "Item added successfully",
-      item: data,
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-// Get Items by List
-export const getItems = async (req, res) => {
-  try {
-    const { listId } = req.params;
-    const userId = req.user.id;
-
-    // Check if list exists
-    const { data: list } = await supabase
-      .from("grocery_lists")
-      .select("*")
-      .eq("id", listId)
-      .single();
-
-    if (!list) {
-      return res.status(404).json({ message: "List not found" });
-    }
-
-    // If not owner → check shared access
-    if (list.user_id !== userId) {
-      const { data: shared } = await supabase
-        .from("shared_lists")
-        .select("*")
-        .eq("list_id", listId)
-        .eq("shared_with", userId)
-        .single();
-
-      if (!shared) {
-        return res.status(403).json({
-          message: "Not authorized to view items",
-        });
-      }
-    }
-
-    const { data, error } = await supabase
-      .from("grocery_items")
-      .select("*")
-      .eq("list_id", listId);
-
-    if (error) throw error;
-
-    res.status(200).json(data);
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-// Update Item
-export const updateItem = async (req, res) => {
-  try {
-    const { id } = req.params;
-     const userId = req.user.id;
-
-    const { data: item } = await supabase
-      .from("grocery_items")
-      .select("*")
-      .eq("id", id)
-      .single();
-
-    if (!item) {
-      return res.status(404).json({ message: "Item not found" });
-    }
-
-    const { data: list } = await supabase
-      .from("grocery_lists")
-      .select("*")
-      .eq("id", item.list_id)
-      .single();
-
-    if (list.user_id !== userId) {
-      const { data: shared } = await supabase
-        .from("shared_lists")
-        .select("*")
-        .eq("list_id", list.id)
-        .eq("shared_with", userId)
-        .single();
-
-        if (!shared) {
-        return res.status(403).json({
-          message: "Not authorized to update item",
-        });
-      }
-    }
-
-    const { item_name, category, quantity, price, purchased } = req.body;
-
-    const { data, error } = await supabase
-      .from("grocery_items")
-      .update({
-        item_name,
-        category,
-        quantity,
-        price,
-        purchased,
-      })
-      .eq("id", id)
-      .select();
-
-    if (error) throw error;
-
-    res.status(200).json({
-      message: "Item updated successfully",
-      item: data,
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-// Delete Item
-export const deleteItem = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user.id;
-    const { data: item } = await supabase
-      .from("grocery_items")
-      .select("*")
-      .eq("id", id)
-      .single();
-
-    if (!item) {
-      return res.status(404).json({ message: "Item not found" });
-    }
-     const { data: list } = await supabase
-      .from("grocery_lists")
-      .select("*")
-      .eq("id", item.list_id)
-      .single();
-
-    if (list.user_id !== userId) {
-      const { data: shared } = await supabase
-        .from("shared_lists")
-        .select("*")
-        .eq("list_id", list.id)
-        .eq("shared_with", userId)
-        .single();
-       if (!shared) {
-        return res.status(403).json({
-          message: "Not authorized to delete item",
-        });
-      }
-    } 
-    const { error } = await supabase
-      .from("grocery_items")
-      .delete()
-      .eq("id", id);
-
-    if (error) throw error;
-
-    res.status(200).json({
-      message: "Item deleted successfully",
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-
-// getBudgetSummary
-export const getBudgetSummary = async (req, res) => {
-  try {
-    const userId = req.user.id;
-
-    const { data } = await supabase
-      .from("grocery_lists")
-      .select("grocery_items(price)")
-      .eq("user_id", userId);
-
-    let total = 0;
-
-    data.forEach(list => {
-      list.grocery_items?.forEach(item => {
-        total += item.price || 0;
-      });
-    });
-
-    res.status(200).json({
-      total_spending: total,
-      budget_limit: req.user.budget_limit || 0
-    });
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-// shopping
-export const completeShopping = async (req, res) => {
-  try {
-    console.log("USER:", req.user);
-    console.log("BODY:", req.body);
-
-    const userId = req.user?.id;
-
-    if (!userId) {
-      return res.status(401).json({
-        message: "Unauthorized user",
-      });
-    }
-
-    const { total_amount } = req.body;
-
-    if (!total_amount) {
-      return res.status(400).json({
-        message: "Total amount is required",
-      });
-    }
-
-    const { data, error } = await supabase
-      .from("shopping_history")
-      .insert([
-        {
-          user_id: userId,
-          total_amount: total_amount,
-        },
-      ])
-      .select();
-
-    if (error) {
-      console.log("INSERT ERROR:", error);
-      throw error;
-    }
-
-    res.status(200).json({
-      message: "Shopping completed and saved",
-      data,
-    });
-
-  } catch (err) {
-    console.log("SERVER ERROR:", err);
-    res.status(500).json({ error: err.message });
-  }
-};
-// ===============================
-// GET SHOPPING HISTORY
-
-export const getShoppingHistory = async (req, res) => {
-  try {
-    const userId = req.user.id;
-
-    const { data, error } = await supabase
-      .from("shopping_history")
-      .select("*")
-      .eq("user_id", userId)
-      .order("completed_at", { ascending: false });
-
-    if (error) throw error;
-
-    res.status(200).json(data);
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-// ===============================
-// GET COUPONS FOR A LIST
-// ===============================
-export const getCouponsForList = async (req, res) => {
-  try {
-    const { listId } = req.params;
-
-    // Get all items in the list
-    const { data: items } = await supabase
-      .from("grocery_items")
-      .select("item_name")
-      .eq("list_id", listId);
-
-
-    if (!items || items.length === 0) {
-      return res.status(200).json([]);
-    }
-
-    const itemNames = items.map(item => item.item_name.toLowerCase());
-
-    // Get coupons matching those items
-    const { data: coupons } = await supabase
-      .from("coupons")
-      .select("*");
-
-      const filteredCoupons = coupons.filter(c =>
-      itemNames.includes(c.item_name.toLowerCase())
-    );
-
-    res.status(200).json(filteredCoupons);
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-// ===============================
-// ADD PANTRY ITEM
-// ===============================
-
-export const addPantryItem = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { item_name, quantity, unit, expiry_date } = req.body;
-
-    const { data, error } = await supabase
-      .from("pantry")
-      .insert([
-        {
-          user_id: userId,
-          item_name,
-          quantity,
-          unit,
-          expiry_date,
-        },
-      ])
-      .select();
-
-    if (error) throw error;
-
-    res.status(201).json(data);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-export const getPantryItems = async (req, res) => {
-  try {
-    const userId = req.user.id;
-
-    const { data, error } = await supabase
-      .from("pantry")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
-
-    if (error) throw error;
-
-    res.status(200).json(data);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-
-// ===============================
-// SHARE GROCERY LIST
-// ===============================
+   🤝 SHARE LIST
+=========================== */
 
 export const shareList = async (req, res) => {
   try {
@@ -555,65 +127,337 @@ export const shareList = async (req, res) => {
       });
     }
 
-    // 🔍 Find user by email
-    const { data: user, error: userError } = await supabase
+    const { data: user } = await supabase
       .from("users")
       .select("id")
       .eq("email", email)
-      .single();
+      .maybeSingle();
 
-    if (userError || !user) {
-      return res.status(404).json({
-        message: "User not found",
-      });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
     }
 
-    // 🔍 Verify list belongs to owner
     const { data: list } = await supabase
       .from("grocery_lists")
       .select("*")
       .eq("id", list_id)
-      .single();
+      .maybeSingle();
 
     if (!list || list.user_id !== ownerId) {
-      return res.status(403).json({
-        message: "Not authorized to share this list",
-      });
+      return res.status(403).json({ message: "Not authorized to share" });
     }
 
-    // 🔥 Prevent duplicate share
-    const { data: existing } = await supabase
-      .from("shared_lists")
+    await supabase.from("shared_lists").insert([
+      {
+        list_id,
+        owner_id: ownerId,
+        shared_with: user.id,
+        permission: permission || "edit",
+      },
+    ]);
+
+    res.json({ message: "List shared successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/* ===========================
+   🛍 GROCERY ITEM CONTROLLERS
+=========================== */
+
+const allowedUnits = ["kg", "g", "litre", "ml", "piece", "packet", "dozen"];
+
+export const addItem = async (req, res) => {
+  try {
+    const { list_id, item_name, category, quantity, unit, price } = req.body;
+    const userId = req.user.id;
+
+    if (!list_id || !item_name || !quantity || !unit) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    if (!allowedUnits.includes(unit)) {
+      return res.status(400).json({ message: "Invalid unit type" });
+    }
+
+    const { data: list } = await supabase
+      .from("grocery_lists")
       .select("*")
-      .eq("list_id", list_id)
-      .eq("shared_with", user.id)
-      .single();
+      .eq("id", list_id)
+      .maybeSingle();
 
-    if (existing) {
-      return res.status(400).json({
-        message: "List already shared with this user",
-      });
+    if (!list || list.user_id !== userId) {
+      return res.status(403).json({ message: "Not authorized" });
     }
 
-    // 🔥 Insert share record
-    const { error } = await supabase
-      .from("shared_lists")
+    const { data, error } = await supabase
+      .from("grocery_items")
       .insert([
         {
           list_id,
-          owner_id: ownerId,
-          shared_with: user.id,
-          permission: permission || "edit",
+          item_name: item_name.toLowerCase(),
+          category,
+          quantity,
+          unit,
+          price: price || 0,
         },
-      ]);
+      ])
+      .select()
+      .single();
 
     if (error) throw error;
 
-    res.status(200).json({
-      message: "List shared successfully",
-    });
-
+    res.status(201).json({ message: "Item added", item: data });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+};
+
+export const getItems = async (req, res) => {
+  try {
+    const { listId } = req.params;
+
+    const { data, error } = await supabase
+      .from("grocery_items")
+      .select("*")
+      .eq("list_id", listId);
+
+    if (error) throw error;
+
+    res.json(data || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const updateItem = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { item_name, quantity, unit, price, purchased } = req.body;
+
+    if (unit && !allowedUnits.includes(unit)) {
+      return res.status(400).json({ message: "Invalid unit type" });
+    }
+
+    const { data, error } = await supabase
+      .from("grocery_items")
+      .update({
+        item_name: item_name?.toLowerCase(),
+        quantity,
+        unit,
+        price,
+        purchased,
+      })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ message: "Item updated", item: data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const deleteItem = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await supabase.from("grocery_items").delete().eq("id", id);
+    res.json({ message: "Item deleted" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/* ===========================
+   💰 COMPLETE SHOPPING
+=========================== */
+
+export const completeShopping = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { list_id } = req.body;
+
+    if (!list_id) {
+      return res.status(400).json({ message: "List ID required" });
+    }
+
+    const { data: items } = await supabase
+      .from("grocery_items")
+      .select("*")
+      .eq("list_id", list_id);
+
+    let total = 0;
+
+    items?.forEach((item) => {
+      total += Number(item.quantity) * Number(item.price || 0);
+    });
+
+    const { data, error } = await supabase
+      .from("shopping_history")
+      .insert([
+        {
+          user_id: userId,
+          list_id,
+          total_amount: total,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ message: "Shopping completed", data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/* ===========================
+   📜 SHOPPING HISTORY
+=========================== */
+
+export const getShoppingHistory = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const { data } = await supabase
+      .from("shopping_history")
+      .select("*")
+      .eq("user_id", userId)
+      .order("completed_at", { ascending: false });
+
+    res.json(data || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/* ===========================
+   🎟 COUPONS
+=========================== */
+
+export const getCouponsForList = async (req, res) => {
+  try {
+    const { listId } = req.params;
+
+    const { data: items } = await supabase
+      .from("grocery_items")
+      .select("item_name")
+      .eq("list_id", listId);
+
+    const itemNames = items?.map((i) => i.item_name.toLowerCase()) || [];
+
+    const { data: coupons } = await supabase.from("coupons").select("*");
+
+    const validCoupons =
+      coupons?.filter(
+        (c) =>
+          itemNames.includes(c.item_name.toLowerCase()) &&
+          new Date(c.valid_until) >= new Date()
+      ) || [];
+
+    res.json(validCoupons);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/* ===========================
+   🥫 PANTRY
+=========================== */
+
+export const addPantryItem = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { item_name, quantity, unit, expiry_date } = req.body;
+
+    if (!allowedUnits.includes(unit)) {
+      return res.status(400).json({ message: "Invalid unit type" });
+    }
+
+    const { data, error } = await supabase
+      .from("pantry")
+      .insert([
+        {
+          user_id: userId,
+          item_name: item_name.toLowerCase(),
+          quantity,
+          unit,
+          expiry_date,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.status(201).json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const getPantryItems = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const { data } = await supabase
+      .from("pantry")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    res.json(data || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/* ===========================
+   🔓 PUBLIC SHARED LIST
+=========================== */
+
+export const getSharedList = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get list
+    const { data: list, error: listError } = await supabase
+      .from("grocery_lists")
+      .select("title")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (listError || !list) {
+      return res.status(404).json({
+        message: "List not found",
+      });
+    }
+
+    // Get items
+    const { data: items, error: itemError } = await supabase
+      .from("grocery_items")
+      .select("*")
+      .eq("list_id", id);
+
+    if (itemError) {
+      return res.status(500).json({
+        message: "Failed to fetch items",
+      });
+    }
+
+    res.status(200).json({
+      title: list.title,
+      items: items || [],
+    });
+
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      message: "Server error",
+    });
   }
 };

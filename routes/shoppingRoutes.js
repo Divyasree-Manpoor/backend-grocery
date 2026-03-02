@@ -1,4 +1,5 @@
 import express from "express";
+import { protect } from "../middleware/authMiddleware.js";
 import {
   completeShopping,
   getShoppingHistory,
@@ -6,7 +7,14 @@ import {
 
 const router = express.Router();
 
-router.post("/complete-shopping", completeShopping);
-router.get("/history", getShoppingHistory);//changed
+/* ===========================
+   🛒 SHOPPING ROUTES
+=========================== */
+
+// Complete shopping (save history)
+router.post("/complete", protect, completeShopping);
+
+// Get shopping history
+router.get("/history", protect, getShoppingHistory);
 
 export default router;

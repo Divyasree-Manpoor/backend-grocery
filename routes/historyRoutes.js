@@ -1,18 +1,14 @@
 import express from "express";
-import { getDashboardStats } from "../controllers/dashboardController.js";
 import { protect } from "../middleware/authMiddleware.js";
+import { getShoppingHistory } from "../controllers/shoppingController.js";
 
 const router = express.Router();
 
 /* ===========================
-   📊 DASHBOARD ROUTES
+   📜 SHOPPING HISTORY ROUTES
 =========================== */
 
-// Get Dashboard Statistics
-router.get(
-  "/stats",
-  protect,
-  getDashboardStats
-);
+// Get all shopping history for logged-in user
+router.get("/", protect, getShoppingHistory);
 
 export default router;

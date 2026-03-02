@@ -6,21 +6,23 @@ import {
   updatePantryItem,
   deletePantryItem,
 } from "../controllers/pantryController.js";
+
 const router = express.Router();
 
 /* ===========================
    🥫 PANTRY ROUTES
 =========================== */
 
-router.post("/", protect,addPantryItem);
+// Add pantry item
+router.post("/", protect, addPantryItem);
 
-router.get("/",protect, getPantryItems);
+// Get all pantry items
+router.get("/", protect, getPantryItems);
 
-router.put("/:id",protect, updatePantryItem);
+// Update pantry item
+router.put("/:id", protect, updatePantryItem);
 
-router.delete("/:id",protect, deletePantryItem);
-
-router.post("/pantry", protect, addPantryItem);
-router.get("/pantry", protect, getPantryItems);
+// Delete pantry item
+router.delete("/:id", protect, deletePantryItem);
 
 export default router;
