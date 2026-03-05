@@ -214,6 +214,61 @@ export const addItem = async (req, res) => {
   }
 };
 
+
+export const addMissingItems = async (req, res) => {
+
+  try {
+
+    const { list_id, items, plan_id } = req.body;
+
+    const userId = req.user.id;
+
+    if (!list_id || !items || items.length === 0) {
+      return res.status(400).json({
+        message: "List id and items are required"
+      });
+    }
+
+    const groceryItems = items.map(item => ({
+      list_id,
+      item_name: item.toLowerCase(),
+      quantity: 1,
+      unit: "piece"
+    }));
+
+    const { error } = await supabase
+      .from("grocery_items")
+      .insert(groceryItems);
+
+    if (error) throw error;
+
+    /* remove missing ingredients from meal */
+
+    if (plan_id) {
+
+      await supabase
+        .from("meal_plans")
+        .update({
+          missing_ingredients: []
+        })
+        .eq("id", plan_id);
+
+    }
+
+    res.status(201).json({
+      message: "Missing ingredients added to grocery list"
+    });
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+
+  }
+
+};
+
 export const getItems = async (req, res) => {
   try {
     const { listId } = req.params;

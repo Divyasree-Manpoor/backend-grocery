@@ -10,6 +10,7 @@ import {
   updateItem,
   deleteItem,
   getSharedList,
+  addMissingItems
 } from "../controllers/groceryController.js";
 
 const router = express.Router();
@@ -28,5 +29,6 @@ router.delete("/items/:id", protect, deleteItem);
 
 /* SHARE */
 router.post("/shared/:id", protect, getSharedList);
+router.post("/add-items", protect, addMissingItems);
 
 export default router;

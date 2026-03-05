@@ -11,6 +11,8 @@ import { errorHandler } from "./middleware/errorMiddleware.js";
 import shoppingRoutes from "./routes/shoppingRoutes.js";
 import budgetRoutes from "./routes/budgetRoutes.js";
 import couponRoutes from "./routes/couponRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
+
 dotenv.config();
 
 const app = express();
@@ -27,6 +29,7 @@ app.use("/api/meals", mealRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/shopping", shoppingRoutes);
 app.use("/api/grocery/coupons", couponRoutes);
+app.use("/api/users", userRoutes);
 
 app.use("/api/budget",budgetRoutes);
 // Test Route

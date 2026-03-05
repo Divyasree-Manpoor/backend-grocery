@@ -1,6 +1,6 @@
 import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
-import { getShoppingHistory } from "../controllers/shoppingController.js";
+import { getShoppingHistory, getBillById } from "../controllers/shoppingController.js";
 
 const router = express.Router();
 
@@ -8,7 +8,10 @@ const router = express.Router();
    📜 SHOPPING HISTORY ROUTES
 =========================== */
 
-// Get all shopping history for logged-in user
+// Get all shopping history
 router.get("/", protect, getShoppingHistory);
+
+// Get single bill details
+router.get("/:id", protect, getBillById);
 
 export default router;

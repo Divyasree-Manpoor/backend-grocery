@@ -5,6 +5,7 @@ import {
   getMealPlans,
   deleteMealPlan,
   suggestMeals,
+  updateMealPlan
 } from "../controllers/mealController.js";
 
 const router = express.Router();
@@ -28,5 +29,9 @@ router.delete("/plans/:id", protect, deleteMealPlan);
 
 // Suggest meals based on pantry + dietary preference
 router.get("/suggestions", protect, suggestMeals);
+
+
+router.put("/:id", updateMealPlan);
+
 
 export default router;

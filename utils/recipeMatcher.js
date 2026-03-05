@@ -1,18 +1,22 @@
 // utils/recipeMatcher.js
 
 export const matchRecipes = (meals = [], pantryItems = []) => {
+
   const pantrySet = new Set(
-    pantryItems.map((item) => item.item_name.toLowerCase())
+    pantryItems.map(item =>
+      item.item_name.toLowerCase()
+    )
   );
 
-  const suggestions = meals.map((meal) => {
-    const ingredients = meal.ingredients.map((ing) =>
+  const suggestions = meals.map(meal => {
+
+    const ingredients = meal.ingredients.map(ing =>
       ing.toLowerCase()
     );
 
     let matchCount = 0;
 
-    ingredients.forEach((ingredient) => {
+    ingredients.forEach(ingredient => {
       if (pantrySet.has(ingredient)) {
         matchCount++;
       }
@@ -23,12 +27,15 @@ export const matchRecipes = (meals = [], pantryItems = []) => {
 
     return {
       ...meal,
-      matchPercentage: Number(matchPercentage.toFixed(0)),
+      matchCount,
+      matchPercentage: Number(matchPercentage.toFixed(0))
     };
+
   });
 
-  // Sort by best match
+  // Only meals with 2 or more matching ingredients
   return suggestions
-    .filter((meal) => meal.matchPercentage > 0)
-    .sort((a, b) => b.matchPercentage - a.matchPercentage);
+    .filter(meal => meal.matchCount >= 2)
+    .sort((a, b) => b.matchCount - a.matchCount);
+
 };

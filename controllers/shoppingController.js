@@ -12,7 +12,7 @@ import { applyCoupon } from "../utils/applyCoupon.js";
 export const completeShopping = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { list_id } = req.body;
+    const { list_id ,store_name} = req.body;
 
     if (!list_id) {
       return res.status(400).json({ message: "List ID required" });
@@ -76,6 +76,7 @@ export const completeShopping = async (req, res) => {
             subtotal,
             discount_amount: totalDiscount,
             total_amount: finalTotal,
+            store_name
           },
         ])
         .select()
@@ -127,5 +128,116 @@ export const getShoppingHistory = async (req, res) => {
     return res.status(500).json({
       message: "Failed to fetch shopping history",
     });
+  }
+};
+
+
+export const getLatestShopping = async (req, res) => {
+
+  try {
+
+    const userId = req.user.id;
+
+    const { data, error } = await supabase
+      .from("shopping_history")
+      .select(`
+        id,
+        subtotal,
+        discount_amount,
+        total_amount,
+        completed_at,
+        grocery_lists(title)
+      `)
+      .eq("user_id", userId)
+      .order("completed_at", { ascending: false });
+
+    if (error) throw error;
+
+    res.json(data);
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+
+  }
+
+};
+
+
+export const getBillByList = async (req, res) => {
+  try {
+
+    const { listId } = req.params;
+
+    const { data, error } = await supabase
+      .from("shopping_history")
+      .select(`
+        subtotal,
+        discount_amount,
+        total_amount,
+        completed_at,
+        grocery_lists(title)
+      `)
+      .eq("list_id", listId)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    res.json(data);
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+
+  }
+};
+
+export const getLatestBill = async (req, res) => {
+  try {
+
+    const userId = req.user.id;
+
+    const { data, error } = await supabase
+      .from("shopping_history")
+      .select("*")
+      .eq("user_id", userId)
+      .order("completed_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error) throw error;
+
+    res.json(data);
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+
+  }
+};
+
+export const getBillById = async (req, res) => {
+  try {
+
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from("shopping_history")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (error) throw error;
+
+    res.json(data);
+
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch bill" });
   }
 };
